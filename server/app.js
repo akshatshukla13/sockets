@@ -25,8 +25,14 @@ io.on("connection", (socket) => {
     socket.to(otherId).emit("pvt", message);
   });
 
+  // Broadcast content updates to all clients except the sender
   socket.on("editorContentUpdate", (newContent) => {
-    socket.broadcast.emit("editorContentUpdate", newContent); // broadcast to all clients except sender
+    socket.broadcast.emit("editorContentUpdate", newContent);
+  });
+
+  // Broadcast language changes to all clients except the sender
+  socket.on("languageChange", (newLanguage) => {
+    socket.broadcast.emit("languageChange", newLanguage);
   });
 
   socket.on("disconnect", () => {

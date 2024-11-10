@@ -5,45 +5,89 @@ import Editor from '@monaco-editor/react';
 function App() {
   const [id, setId] = useState("no");
   const [otherId, setOtherId] = useState("");
-  const [message, setMessage] = useState("");
+  const [content, setContent] = useState("");
   const [language, setLanguage] = useState("javascript");
 
   // Establish a socket connection
   const socket = useMemo(() => io("http://localhost:3000"), []);
 
   useEffect(() => {
-    // Connect to the socket and set the ID
     socket.on("connect", () => {
       console.log("connected", socket.id);
       setId(socket.id);
     });
 
-    // Receive welcome message from server
-    socket.on("welcome", (x) => {
-      console.log("welcome ", x);
-    });
-
-    // Listen for incoming private messages
-    socket.on("pvt", (x) => {
-      console.log("chat: ", x);
-    });
-
-    // Listen for content updates from other users
+    // Listen for content and language changes from other users
     socket.on("editorContentUpdate", (newContent) => {
-      setMessage(newContent);
+      setContent(newContent);
     });
+
+    socket.on("languageChange", (newLanguage) => {
+      setLanguage(newLanguage);
+    });
+
+    // Clean up socket on unmount
+    return () => {
+      socket.disconnect();
+    };
   }, [socket]);
 
-  // Handle content changes and broadcast to other users
+  // Handle editor content changes and broadcast to other users
   const handleEditorChange = (value) => {
-    setMessage(value || "");
-    // Emit the updated content to other connected clients
+    setContent(value || "");
     socket.emit("editorContentUpdate", value || "");
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    socket.emit("privateMessage", { otherId, message });
+  // Handle language change
+  const handleLanguageChange = (e) => {
+    const newLanguage = e.target.value;
+    setLanguage(newLanguage);
+    socket.emit("languageChange", newLanguage);
+  };
+
+  // Set up custom snippets for commonly used patterns
+  const editorDidMount = (editor, monaco) => {
+    monaco.languages.registerCompletionItemProvider('javascript', {
+      provideCompletionItems: () => ({
+        suggestions: [
+          {
+            label: 'console.log',
+            kind: monaco.languages.CompletionItemKind.Snippet,
+            insertText: 'console.log(${1:object});',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Log output to console',
+          },
+          {
+            label: 'function',
+            kind: monaco.languages.CompletionItemKind.Snippet,
+            insertText: 'function ${1:functionName}(${2:params}) {\n\t${3:// body}\n}',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Function declaration',
+          },
+          {
+            label: 'if',
+            kind: monaco.languages.CompletionItemKind.Snippet,
+            insertText: 'if (${1:condition}) {\n\t${2:// body}\n}',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'If statement',
+          },
+          {
+            label: 'for loop',
+            kind: monaco.languages.CompletionItemKind.Snippet,
+            insertText: 'for (let ${1:i} = 0; ${1:i} < ${2:array}.length; ${1:i}++) {\n\t${3:// body}\n}',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'For loop',
+          },
+          {
+            label: 'async function',
+            kind: monaco.languages.CompletionItemKind.Snippet,
+            insertText: 'async function ${1:functionName}(${2:params}) {\n\t${3:// body}\n}',
+            insertTextRules: monaco.languages.CompletionItemInsertTextRule.InsertAsSnippet,
+            documentation: 'Async function declaration',
+          },
+        ],
+      }),
+    });
   };
 
   return (
@@ -60,11 +104,12 @@ function App() {
         width="100%"
         language={language}
         theme="vs-dark"
-        value={message}
+        value={content}
         onChange={handleEditorChange}
+        onMount={editorDidMount}
       />
       <select
-        onChange={(e) => setLanguage(e.target.value)}
+        onChange={handleLanguageChange}
         value={language}
         style={{ margin: "10px 0" }}
       >
@@ -76,7 +121,6 @@ function App() {
         <option value="html">HTML</option>
         <option value="css">CSS</option>
       </select>
-      <button onClick={handleSubmit}>Send Message</button>
     </>
   );
 }
