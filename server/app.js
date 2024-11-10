@@ -24,6 +24,14 @@ io.on("connection", (socket) => {
     console.log(message);
     socket.to(otherId).emit("pvt", message);
   });
+
+  socket.on("editorContentUpdate", (newContent) => {
+    socket.broadcast.emit("editorContentUpdate", newContent); // broadcast to all clients except sender
+  });
+
+  socket.on("disconnect", () => {
+    console.log("User disconnected:", socket.id);
+  });
 });
 
 app.use(
